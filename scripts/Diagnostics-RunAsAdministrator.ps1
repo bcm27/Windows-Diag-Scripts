@@ -27,16 +27,16 @@ function Stop-Logging {
 function Show-Menu {
     Clear-Host
     Write-Host "================ Windows Diagnostics Tool ================" -ForegroundColor Cyan
-    Write-Host "1: System Information"
-    Write-Host "2: Disk Health"
-    Write-Host "3: Windows Update Status"
-    Write-Host "4: Running Processes"
-    Write-Host "5: Critical Services"
-    Write-Host "6: Network Connectivity"
-    Write-Host "7: System File Integrity"
-    Write-Host "8: Security Issues"
-    Write-Host "9: Virus and Malware Check"
-    Write-Host "10: Performance Metrics"
+    Write-Host "1: Check System Information"
+    Write-Host "2: Check Disk Health"
+    Write-Host "3: Check Windows Update Status"
+    Write-Host "4: List Running Processes"
+    Write-Host "5: List Critical Services"
+    Write-Host "6: Check Network Connectivity"
+    Write-Host "7: Run System File Integrity"
+    Write-Host "8: Check Firewall Settings"
+    Write-Host "9: Run Virus and Malware Scans"
+    Write-Host "10: Run Performance Metrics"
     Write-Host "R: Run All Tests"
     Write-Host "S: Run without Security Tests"
     Write-Host "Q: Quit"
@@ -219,64 +219,160 @@ function Check-SystemFileIntegrity {
 
 # Function to check for virus and malware
 function Check-VirusAndMalware {
-    Write-Host "Performing enhanced virus and malware check..." -ForegroundColor Yellow
-    try {
-        # Check Windows Defender status
-        $defenderStatus = Get-MpComputerStatus
-        Write-Host "Windows Defender Status:" -ForegroundColor Cyan
-        [PSCustomObject]@{
-            "Real-time Protection"           = $defenderStatus.RealTimeProtectionEnabled
-            "Antivirus Signature Version"    = $defenderStatus.AntivirusSignatureVersion
-            "Antivirus Signature Age (Days)" = $defenderStatus.AntivirusSignatureAge
-            "Last Full Scan Date"            = $defenderStatus.FullScanEndTime
-            "Quick Scan Age (Days)"          = $defenderStatus.QuickScanAge
-        } | Format-List
+    Write-Host "Performing comprehensive virus and malware check..." -ForegroundColor Yellow
 
-        # Perform a quick scan
-        Write-Host "Initiating a quick scan with Windows Defender..." -ForegroundColor Cyan
-        Start-MpScan -ScanType QuickScan
+    $activities = @(
+        "Checking Windows Defender Status",
+        "Detecting Third-party Antivirus",
+        "Running Selected Scan",
+        "Retrieving Threat History",
+        "Performing Additional Security Checks"
+    )
 
-        # Wait for the scan to complete (with timeout)
-        $timeout = 300 # 5 minutes timeout
-        $timer = [Diagnostics.Stopwatch]::StartNew()
-        while (($scan = Get-MpComputerStatus).QuickScanAge -eq 0 -and $timer.Elapsed.TotalSeconds -lt $timeout) {
-            Write-Host "Scan in progress... Please wait." -ForegroundColor Yellow
-            Start-Sleep -Seconds 10
-        }
-        $timer.Stop()
+    for ($i = 0; $i -lt $activities.Count; $i++) {
+        $activity = $activities[$i]
+        $percentComplete = [math]::Round(($i / $activities.Count) * 100)
+        
+        Write-Progress -Activity "Virus and Malware Check" -Status $activity -PercentComplete $percentComplete
 
-        if ($scan.QuickScanAge -eq 0) {
-            Write-Host "Scan timed out. Please check Windows Security for full results." -ForegroundColor Red
-        } else {
-            Write-Host "Quick scan completed." -ForegroundColor Green
-        }
-
-        # Get threat history
-        Write-Host "Retrieving threat history..." -ForegroundColor Cyan
-        $threats = Get-MpThreatDetection
-        if ($threats) {
-            $threats | ForEach-Object {
+        switch ($activity) {
+            "Checking Windows Defender Status" {
+                $defenderStatus = Get-MpComputerStatus
+                Write-Host "Windows Defender Status:" -ForegroundColor Cyan
                 [PSCustomObject]@{
-                    "Threat Name"    = $_.ThreatName
-                    "Detection Time" = $_.InitialDetectionTime
-                    "Status"         = $_.ThreatStatusName
-                    "Resources"      = ($_.Resources -join ', ')
+                    "Real-time Protection"           = $defenderStatus.RealTimeProtectionEnabled
+                    "Antivirus Signature Version"    = $defenderStatus.AntivirusSignatureVersion
+                    "Antivirus Signature Age (Days)" = $defenderStatus.AntivirusSignatureAge
+                    "Last Quick Scan Date"           = $defenderStatus.QuickScanEndTime
+                    "Last Full Scan Date"            = $defenderStatus.FullScanEndTime
+                } | Format-List
+            }
+            "Detecting Third-party Antivirus" {
+                $antivirusSoftware = @(
+                    @{Name="Norton"; Path="HKLM:\SOFTWARE\Norton"},
+                    @{Name="McAfee"; Path="HKLM:\SOFTWARE\McAfee"},
+                    @{Name="Kaspersky"; Path="HKLM:\SOFTWARE\Kaspersky Lab"},
+                    @{Name="Bitdefender"; Path="HKLM:\SOFTWARE\BITDEFENDER"},
+                    @{Name="Avast"; Path="HKLM:\SOFTWARE\AVAST Software"},
+                    @{Name="AVG"; Path="HKLM:\SOFTWARE\AVG"}
+                )
+                $installedAntivirus = $antivirusSoftware | Where-Object { Test-Path $_.Path }
+                if ($installedAntivirus) {
+                    Write-Host "Detected third-party antivirus software:" -ForegroundColor Green
+                    $installedAntivirus | ForEach-Object { Write-Host "- $($_.Name)" }
+                } else {
+                    Write-Host "No third-party antivirus software detected." -ForegroundColor Yellow
                 }
-            } | Format-Table -AutoSize
-        } else {
-            Write-Host "No threats detected in the history." -ForegroundColor Green
-        }
+            }
+            "Running Selected Scan" {
+                $scanOptions = @("Windows Defender Quick Scan", "Windows Defender Full Scan")
+                if ($installedAntivirus) {
+                    $scanOptions += "Third-party Antivirus Scan"
+                }
+                $scanOptions += "Skip Scan"
 
-        # Check for potentially unwanted applications (PUA)
-        Write-Host "Checking for potentially unwanted applications..." -ForegroundColor Cyan
-        $puaProtection = Get-MpPreference | Select-Object -ExpandProperty PUAProtection
-        if ($puaProtection -eq 2) {
-            Write-Host "PUA Protection is enabled." -ForegroundColor Green
-        } else {
-            Write-Host "PUA Protection is not fully enabled. Consider enabling it for better protection." -ForegroundColor Yellow
+                $scanChoice = $scanOptions | Out-GridView -Title "Select scan option" -PassThru
+
+                switch ($scanChoice) {
+                    "Windows Defender Quick Scan" { 
+                        Write-Host "Starting Windows Defender Quick Scan..." -ForegroundColor Cyan
+                        Start-MpScan -ScanType QuickScan
+                        Wait-ForScanCompletion -ScanType "Quick" 
+                    }
+                    "Windows Defender Full Scan" { 
+                        Write-Host "Starting Windows Defender Full Scan..." -ForegroundColor Cyan
+                        Start-MpScan -ScanType FullScan
+                        Wait-ForScanCompletion -ScanType "Full" 
+                    }
+                    "Third-party Antivirus Scan" {
+                        Write-Host "Please run a scan using your installed third-party antivirus software: $($installedAntivirus.Name)" -ForegroundColor Yellow
+                        Write-Host "Consult the software's documentation for instructions on running a scan." -ForegroundColor Yellow
+                        Read-Host "Press Enter when you have completed the third-party scan"
+                    }
+                    "Skip Scan" { Write-Host "Scan skipped." -ForegroundColor Yellow }
+                    $null { Write-Host "Scan selection cancelled." -ForegroundColor Yellow }
+                }
+            }
+            "Retrieving Threat History" {
+                $threats = Get-MpThreatDetection
+                if ($threats) {
+                    Write-Host "Recent threats detected:" -ForegroundColor Yellow
+                    $threats | Select-Object -First 10 | ForEach-Object {
+                        [PSCustomObject]@{
+                            "Threat Name"    = $_.ThreatName
+                            "Detection Time" = $_.InitialDetectionTime
+                            "Status"         = $_.ThreatStatusName
+                            "Resources"      = ($_.Resources -join ', ')
+                        }
+                    } | Format-Table -AutoSize
+                } else {
+                    Write-Host "No threats detected in the history." -ForegroundColor Green
+                }
+            }
+            "Performing Additional Security Checks" {
+                # Check for potentially unwanted applications (PUA)
+                $puaProtection = Get-MpPreference | Select-Object -ExpandProperty PUAProtection
+                if ($puaProtection -eq 2) {
+                    Write-Host "PUA Protection is enabled." -ForegroundColor Green
+                } else {
+                    Write-Host "PUA Protection is not fully enabled. Consider enabling it for better protection." -ForegroundColor Yellow
+                }
+
+                # Check for suspicious connections
+                Write-Host "Checking for suspicious network connections..." -ForegroundColor Cyan
+                $suspiciousConnections = Get-NetTCPConnection | Where-Object { 
+                    $_.State -eq 'Established' -and 
+                    $_.RemoteAddress -notmatch '^(10\.|172\.(1[6-9]|2[0-9]|3[01])\.|192\.168\.)' -and
+                    $_.RemoteAddress -ne '127.0.0.1' -and
+                    $_.RemoteAddress -ne '::1'
+                }
+                if ($suspiciousConnections) {
+                    Write-Host "Suspicious connections detected:" -ForegroundColor Yellow
+                    $suspiciousConnections | ForEach-Object {
+                        [PSCustomObject]@{
+                            "Local Address"  = $_.LocalAddress
+                            "Local Port"     = $_.LocalPort
+                            "Remote Address" = $_.RemoteAddress
+                            "Remote Port"    = $_.RemotePort
+                            "Process ID"     = $_.OwningProcess
+                            "Process Name"   = (Get-Process -Id $_.OwningProcess -ErrorAction SilentlyContinue).ProcessName
+                        }
+                    } | Format-Table -AutoSize
+                } else {
+                    Write-Host "No suspicious network connections detected." -ForegroundColor Green
+                }
+            }
         }
-    } catch {
-        Write-Host "Failed to check for viruses and malware: $_" -ForegroundColor Red
+    }
+
+    Write-Progress -Activity "Virus and Malware Check" -Completed
+}
+
+function Wait-ForScanCompletion {
+    param (
+        [string]$ScanType
+    )
+
+    $timeout = if ($ScanType -eq "Quick") { 900 } else { 3600 } # 15 minutes for Quick, 1 hour for Full
+    $timer = [Diagnostics.Stopwatch]::StartNew()
+
+    while (($scan = Get-MpComputerStatus)."${ScanType}ScanAge" -eq 0 -and $timer.Elapsed.TotalSeconds -lt $timeout) {
+        $elapsedSeconds = [math]::Round($timer.Elapsed.TotalSeconds)
+        $percentComplete = [math]::Min(100, [math]::Round(($elapsedSeconds / $timeout) * 100))
+        
+        Write-Progress -Activity "Running $ScanType Scan" -Status "Time Elapsed: $elapsedSeconds seconds" -PercentComplete $percentComplete
+        
+        Start-Sleep -Seconds 1
+    }
+    $timer.Stop()
+
+    Write-Progress -Activity "Running $ScanType Scan" -Completed
+
+    if ($scan."${ScanType}ScanAge" -eq 0) {
+        Write-Host "Scan timed out. Please check Windows Security for full results." -ForegroundColor Red
+    } else {
+        Write-Host "${ScanType} scan completed." -ForegroundColor Green
+        Write-Host "Last ${ScanType} Scan Date: $($scan."${ScanType}ScanEndTime")" -ForegroundColor Cyan
     }
 }
 
@@ -349,23 +445,44 @@ function Invoke-SingleTest {
     }
 }
 
-# Function to run selected tests
 function Invoke-SelectedTests {
     param (
         [string[]]$TestsToRun
     )
-    for ($i = 0; $i -lt $TestsToRun.Count; $i++) {
-        $progress = @{
-            Activity        = "Running Diagnostic Tests"
-            Status          = "Processing Test $($TestsToRun[$i])"
-            PercentComplete = ($i / $TestsToRun.Count) * 100
-        }
-        Write-Progress @progress
-        Invoke-SingleTest -TestNumber $TestsToRun[$i]
+
+    $totalTests = $TestsToRun.Count
+    for ($i = 0; $i -lt $totalTests; $i++) {
+        $testNumber = $TestsToRun[$i]
+        $testName = Get-TestName -TestNumber $testNumber
+        
+        $percentComplete = [math]::Round(($i / $totalTests) * 100)
+        $statusMessage = [string]::Format("Test {0} of {1}: {2}", $testNumber, $totalTests, $testName)
+        Write-Progress -Activity "Running Diagnostic Tests" -Status $statusMessage -PercentComplete $percentComplete
+
+        Invoke-SingleTest -TestNumber $testNumber
     }
     Write-Progress -Activity "Running Diagnostic Tests" -Completed
 }
 
+function Get-TestName {
+    param (
+        [string]$TestNumber
+    )
+    
+    switch ($TestNumber) {
+        "1" { return "System Information" }
+        "2" { return "Disk Health" }
+        "3" { return "Windows Update Status" }
+        "4" { return "Running Processes" }
+        "5" { return "Critical Services" }
+        "6" { return "Network Connectivity" }
+        "7" { return "System File Integrity" }
+        "8" { return "Security Issues" }
+        "9" { return "Virus and Malware Check" }
+        "10" { return "Performance Metrics" }
+        default { return "Unknown Test" }
+    }
+}
 # Main execution
 try {
     Start-Logging
