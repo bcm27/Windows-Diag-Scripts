@@ -24,7 +24,7 @@ if %errorLevel% == 0 (
 
 :: Run the diagnostics script
 echo Running Windows Diagnostics script...
-powershell -File "W11-Diagnostics-Requires-RunAsAdministrator.ps1"
+powershell -File "/scripts/Diagnostics-RunAsAdministrator.ps1"
 
 echo Script execution completed.
 pause
