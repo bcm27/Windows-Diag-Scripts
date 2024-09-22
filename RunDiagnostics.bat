@@ -15,9 +15,11 @@ if %errorLevel% == 0 (
 :: Enable PowerShell script execution
 powershell -Command "Set-ExecutionPolicy RemoteSigned -Scope CurrentUser -Force"
 if %errorLevel% == 0 (
-    echo PowerShell script execution has been enabled.
+    echo PowerShell script execution policy has been updated.
 ) else (
-    echo Failed to enable PowerShell script execution.
+    echo Failed to update PowerShell script execution policy.
+    echo You may need to run PowerShell as Administrator and run:
+    echo Set-ExecutionPolicy RemoteSigned -Scope CurrentUser
     pause
     exit /b 1
 )

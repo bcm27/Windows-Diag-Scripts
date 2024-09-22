@@ -3,7 +3,8 @@
 # Function to create a timestamped log file
 function Start-Logging {
     $timestamp = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
-    $logPath = "$env:USERPROFILE\Desktop\WindowsDiagnostics_$timestamp.log"
+    $scriptPath = $PSScriptRoot
+    $logPath = Join-Path $scriptPath "Logs/WindowsDiagnostics_$timestamp.log"
     try {
         Start-Transcript -Path $logPath -ErrorAction Stop
         Write-Host "Logging started at $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')" -ForegroundColor Cyan
@@ -37,6 +38,7 @@ function Show-Menu {
     Write-Host "8: Check Firewall Settings"
     Write-Host "9: Run Virus and Malware Scans"
     Write-Host "10: Run Performance Metrics"
+    Write-host "11: Reset Network Settings and DNS Cache"
     Write-Host "R: Run All Tests"
     Write-Host "S: Run without Security Tests"
     Write-Host "Q: Quit"
@@ -312,10 +314,16 @@ function Check-VirusAndMalware {
             "Performing Additional Security Checks" {
                 # Check for potentially unwanted applications (PUA)
                 $puaProtection = Get-MpPreference | Select-Object -ExpandProperty PUAProtection
-                if ($puaProtection -eq 2) {
-                    Write-Host "PUA Protection is enabled." -ForegroundColor Green
+                if ($null -eq $puaProtection) {
+                    Write-Host "Unable to determine PUA Protection status." -ForegroundColor Yellow
+                } elseif ($puaProtection -eq 2) {
+                    Write-Host "PUA Protection is fully enabled." -ForegroundColor Green
+                } elseif ($puaProtection -eq 1) {
+                    Write-Host "PUA Protection is enabled in audit mode. Consider enabling full blocking for better protection." -ForegroundColor Yellow
+                } elseif ($puaProtection -eq 0) {
+                    Write-Host "PUA Protection is disabled. Consider enabling it for better protection." -ForegroundColor Red
                 } else {
-                    Write-Host "PUA Protection is not fully enabled. Consider enabling it for better protection." -ForegroundColor Yellow
+                    Write-Host "Unexpected PUA Protection value: $puaProtection. Please verify your settings." -ForegroundColor Yellow
                 }
 
                 # Check for suspicious connections
@@ -328,6 +336,8 @@ function Check-VirusAndMalware {
                 }
                 if ($suspiciousConnections) {
                     Write-Host "Suspicious connections detected:" -ForegroundColor Yellow
+                    Write-Host "Note: this is a list of processes transmitting data from your computer."
+                    Write-Host "It by default does not mean a program is a malicious one."
                     $suspiciousConnections | ForEach-Object {
                         [PSCustomObject]@{
                             "Local Address"  = $_.LocalAddress
@@ -406,6 +416,44 @@ function Check-SecurityIssues {
     }
 }
 
+function Reset-NetworkSettings {
+    # Check for administrator privileges
+    if (-NOT ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator")) {
+        Write-Warning "This function requires administrator privileges. Please run PowerShell as an administrator."
+        return
+    }
+
+    Write-Host "Resetting network settings..." -ForegroundColor Yellow
+
+    try {
+        # Reset network adapters
+        Write-Host "Resetting network adapters..." -ForegroundColor Yellow
+        Get-NetAdapter | Restart-NetAdapter
+
+        # Release and renew IP configuration
+        Write-Host "Releasing and renewing IP configuration..." -ForegroundColor Yellow
+        ipconfig /release
+        ipconfig /renew
+
+        # Reset Winsock
+        Write-Host "Resetting Winsock..." -ForegroundColor Yellow
+        netsh winsock reset
+
+        # Clear DNS cache
+        Write-Host "Clearing DNS cache..." -ForegroundColor Yellow
+        ipconfig /flushdns
+
+        # Reset TCP/IP stack
+        Write-Host "Resetting TCP/IP stack..." -ForegroundColor Yellow
+        netsh int ip reset
+
+        Write-Host "Network settings have been reset successfully. A system restart is recommended for changes to take full effect." -ForegroundColor Green
+    }
+    catch {
+        Write-Host "An error occurred while resetting network settings: $_" -ForegroundColor Red
+    }
+}
+
 # Function to get performance metrics
 function Get-PerformanceMetrics {
     Write-Host "Gathering performance metrics..." -ForegroundColor Yellow
@@ -442,6 +490,7 @@ function Invoke-SingleTest {
         "8" { Check-SecurityIssues }
         "9" { Check-VirusAndMalware }
         "10" { Get-PerformanceMetrics }
+        "11" { Reset-NetworkSettings }
     }
 }
 
@@ -480,6 +529,7 @@ function Get-TestName {
         "8" { return "Security Issues" }
         "9" { return "Virus and Malware Check" }
         "10" { return "Performance Metrics" }
+        "11" { return "Reset Network Settings and DNS Cache" }
         default { return "Unknown Test" }
     }
 }
@@ -493,13 +543,13 @@ try {
         $choice = Show-Menu
 
         switch ($choice) {
-            { '1'..'10' -contains $_ } {
+            { '1'..'11' -contains $_ } {
                 if ($selectedTests -notcontains $_) {
                     $selectedTests += $_
                 }
             }
             'R' { 
-                $selectedTests = '1', '2', '3', '4', '5', '6', '7', '8', '9', '10'
+                $selectedTests = '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11'
                 $continue = $false
             }
             'S' { 
