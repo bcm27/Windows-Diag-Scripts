@@ -24,7 +24,6 @@ The Windows Diagnostics Tool is a comprehensive utility designed to help users d
 ## Installation
 
 1. Download the `RunDiagnostics.bat` and `Diagnostics-RunAsAdministrator.ps1` files.
-2. Place both files in the same directory.
 3. Ensure the `Diagnostics-RunAsAdministrator.ps1` file is in a `scripts` subfolder relative to `RunDiagnostics.bat`.
 
 ## Usage
