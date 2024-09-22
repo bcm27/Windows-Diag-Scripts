@@ -39,6 +39,44 @@ The Windows Diagnostics Tool is a comprehensive utility designed to help users d
 5. The tool will execute the selected tests and provide real-time progress updates.
 6. Results will be displayed in the console and saved to a log file on your desktop.
 
+## Troubleshooting
+
+### Execution Policy Error
+
+If you encounter an error message similar to:
+
+```
+Windows-Diag-Scripts-dev\scripts\Diagnostics-RunAsAdministrator.ps1 cannot be loaded. The file ..\Windows-Diag-Scripts-dev\scripts\Diagnostics-RunAsAdministrator.ps1 is not digitally signed. You cannot run this script on the current system.
+```
+
+This error occurs due to Windows PowerShell's default execution policy, which restricts running unsigned scripts for security reasons. To resolve this:
+
+1. Open PowerShell as Administrator.
+2. Run the following command to check your current execution policy:
+   ```
+   Get-ExecutionPolicy
+   ```
+3. If it's set to "Restricted", you can change it to allow local scripts by running:
+   ```
+   Set-ExecutionPolicy unrestricted -Scope CurrentUser
+   ```
+4. When prompted, type 'Y' and press Enter to confirm the change.
+
+After changing the execution policy, try running the diagnostic tool again.
+
+**Note:** Changing the execution policy can have security implications. Only run scripts from sources you trust, and consider reverting the policy after running the diagnostic tool if you're concerned about security.
+
+To set it back run:
+   ```
+   Set-ExecutionPolicy restricted -Scope CurrentUser
+   ```
+### Other Issues
+
+- If you encounter any "Access Denied" errors, make sure you're running the batch file as an administrator.
+- Ensure that both the `RunDiagnostics.bat` and `Diagnostics-RunAsAdministrator.ps1` files are in the correct locations as described in the Installation section.
+
+If you continue to experience issues, please open an issue on the GitHub repository with details about the error and your system configuration.
+
 ## Log Files
 
 - Log files are automatically created on your desktop with the naming convention `WindowsDiagnostics_YYYY-MM-DD_HH-MM-SS.log`.
