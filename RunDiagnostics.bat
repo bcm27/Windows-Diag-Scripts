@@ -22,9 +22,20 @@ if %errorLevel% == 0 (
     exit /b 1
 )
 
+:: Set the path to the scripts folder
+set "SCRIPT_PATH=%~dp0scripts\Diagnostics-RunAsAdministrator.ps1"
+
+:: Check if the script exists
+if not exist "%SCRIPT_PATH%" (
+    echo Error: Cannot find the PowerShell script at %SCRIPT_PATH%
+    echo Please ensure the script is in the correct location.
+    pause
+    exit /b 1
+)
+
 :: Run the diagnostics script
 echo Running Windows Diagnostics script...
-powershell -File "/scripts/Diagnostics-RunAsAdministrator.ps1"
+powershell -File "%SCRIPT_PATH%"
 
 echo Script execution completed.
 pause
