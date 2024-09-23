@@ -24,29 +24,6 @@ function Stop-Logging {
     }
 }
 
-# Function to display the menu and get user selection
-function Show-Menu {
-    Clear-Host
-    Write-Host "================ Windows Diagnostics Tool ================" -ForegroundColor Cyan
-    Write-Host "1: Check System Information"
-    Write-Host "2: Check Disk Health"
-    Write-Host "3: Check Windows Update Status"
-    Write-Host "4: List Running Processes"
-    Write-Host "5: List Critical Services"
-    Write-Host "6: Check Network Connectivity"
-    Write-Host "7: Run System File Integrity"
-    Write-Host "8: Check Firewall Settings"
-    Write-Host "9: Run Virus and Malware Scans"
-    Write-Host "10: Run Performance Metrics"
-    Write-host "11: Reset Network Settings and DNS Cache"
-    Write-Host "R: Run All Tests"
-    Write-Host "S: Run without Security Tests"
-    Write-Host "Q: Quit"
-    Write-Host "=======================================================" -ForegroundColor Cyan
-    $selection = Read-Host "Enter your selection"
-    return $selection
-}
-
 # Function to get system information
 function Get-SystemInfo {
     Write-Host "Gathering system information..." -ForegroundColor Yellow
@@ -513,6 +490,35 @@ function Invoke-SelectedTests {
     Write-Progress -Activity "Running Diagnostic Tests" -Completed
 }
 
+function Show-Menu {
+    Clear-Host
+    Write-Host "================ Windows Diagnostics Tool ================" -ForegroundColor Cyan
+    Write-Host "1: Check System Information"
+    Write-Host "2: Check Disk Health"
+    Write-Host "3: Check Windows Update Status"
+    Write-Host "4: List Running Processes"
+    Write-Host "5: List Critical Services"
+    Write-Host "6: Check Network Connectivity"
+    Write-Host "7: Run System File Integrity"
+    Write-Host "8: Check Security Settings"
+    Write-Host "9: Run Virus and Malware Scans"
+    Write-Host "10: Run Performance Metrics"
+    Write-Host "11: Reset Network Settings and DNS Cache"
+    Write-Host "12: Check for Driver Updates"
+    Write-Host "13: Analyze System Boot Performance"
+    Write-Host "14: Check Power Usage and Battery Health"
+    Write-Host "================ Test Groups ================" -ForegroundColor Cyan
+    Write-Host "A: Run All Tests"
+    Write-Host "B: Run All Tests Except Security and Networking"
+    Write-Host "C: Run Only Security Tests"
+    Write-Host "D: Run Only Networking Tests"
+    Write-Host "S: Run Standard Tests (No Security or Networking)"
+    Write-Host "Q: Quit"
+    Write-Host "=======================================================" -ForegroundColor Cyan
+    $selection = Read-Host "Enter your selection"
+    return $selection
+}
+
 function Get-TestName {
     param (
         [string]$TestNumber
@@ -530,9 +536,13 @@ function Get-TestName {
         "9" { return "Virus and Malware Check" }
         "10" { return "Performance Metrics" }
         "11" { return "Reset Network Settings and DNS Cache" }
+        "12" { return "Driver Updates" }
+        "13" { return "Boot Performance" }
+        "14" { return "Power Usage and Battery Health" }
         default { return "Unknown Test" }
     }
 }
+
 # Main execution
 try {
     Start-Logging
@@ -543,17 +553,29 @@ try {
         $choice = Show-Menu
 
         switch ($choice) {
-            { '1'..'11' -contains $_ } {
+            { '1'..'14' -contains $_ } {
                 if ($selectedTests -notcontains $_) {
                     $selectedTests += $_
                 }
             }
-            'R' { 
-                $selectedTests = '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11'
+            'A' { 
+                $selectedTests = '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', '13', '14'
+                $continue = $false
+            }
+            'B' { 
+                $selectedTests = '1', '2', '3', '4', '5', '7', '10', '12', '13', '14'
+                $continue = $false
+            }
+            'C' { 
+                $selectedTests = '8', '9'
+                $continue = $false
+            }
+            'D' { 
+                $selectedTests = '6', '11'
                 $continue = $false
             }
             'S' { 
-                $selectedTests = '1', '2', '3', '4', '5', '6', '7'
+                $selectedTests = '1', '2', '3', '4', '5', '7', '10', '12', '13', '14'
                 $continue = $false
             }
             'Q' { 
@@ -572,7 +594,7 @@ try {
             default { Write-Host "Invalid selection. Please try again." -ForegroundColor Red }
         }
 
-        if ($continue) {
+        if ($continue -and $selectedTests.Count -gt 0) {
             $runNow = Read-Host "Do you want to run the selected tests now? (Y/N)"
             if ($runNow -eq 'Y') {
                 $continue = $false
