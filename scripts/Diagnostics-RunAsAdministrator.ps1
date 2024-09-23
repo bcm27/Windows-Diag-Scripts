@@ -183,17 +183,67 @@ function Check-NetworkConnectivity {
 # Function to check system file integrity
 function Check-SystemFileIntegrity {
     Write-Host "Checking system file integrity..." -ForegroundColor Yellow
-    Write-Host "This may take some time..."
+    Write-Host "This may take some time. Please be patient." -ForegroundColor Yellow
+
     try {
-        $sfc = Start-Process -FilePath "sfc" -ArgumentList "/scannow" -Wait -PassThru -Verb RunAs
-        if ($sfc.ExitCode -eq 0) {
-            Write-Host "System File Checker completed successfully." -ForegroundColor Green
+        # Run SFC
+        Write-Host "Running System File Checker (SFC)..." -ForegroundColor Yellow
+        $sfcOutput = & sfc /scannow | Out-String
+
+        if ($sfcOutput -match "Windows Resource Protection did not find any integrity violations.") {
+            Write-Host "System File Checker completed successfully. No integrity violations found." -ForegroundColor Green
+        } elseif ($sfcOutput -match "Windows Resource Protection found corrupt files and successfully repaired them.") {
+            Write-Host "System File Checker found and repaired corrupt files." -ForegroundColor Yellow
+        } elseif ($sfcOutput -match "Windows Resource Protection found corrupt files but was unable to fix some of them.") {
+            Write-Host "System File Checker found corrupt files but couldn't repair all of them. Further investigation may be needed." -ForegroundColor Red
         } else {
-            Write-Host "System File Checker encountered an issue. Exit code: $($sfc.ExitCode)" -ForegroundColor Red
+            Write-Host "System File Checker completed, but the output is inconclusive. Please review the CBS log file for more details." -ForegroundColor Yellow
         }
+
+        # Run DISM to check for and repair Windows image
+        Write-Host "Running DISM to check for and repair Windows image..." -ForegroundColor Yellow
+        $dismScanOutput = & dism /Online /Cleanup-Image /ScanHealth 2>&1 | Out-String
+        if ($dismScanOutput -match "No component store corruption detected.") {
+            Write-Host "DISM scan completed. No corruption detected." -ForegroundColor Green
+        } elseif ($dismScanOutput -match "The operation completed successfully.") {
+            Write-Host "DISM scan completed. Please review the full output for any warnings." -ForegroundColor Yellow
+        } else {
+            Write-Host "DISM encountered issues during the scan:" -ForegroundColor Red
+            Write-Host $dismScanOutput -ForegroundColor Red
+            Write-Host "Attempting repair operation..." -ForegroundColor Yellow
+            
+            $dismRepairOutput = & dism /Online /Cleanup-Image /RestoreHealth 2>&1 | Out-String
+            if ($dismRepairOutput -match "The restore operation completed successfully.") {
+                Write-Host "DISM successfully repaired the Windows image." -ForegroundColor Green
+            } else {
+                Write-Host "DISM encountered issues during repair:" -ForegroundColor Red
+                Write-Host $dismRepairOutput -ForegroundColor Red
+                Write-Host "Manual intervention may be required. Consider the following steps:" -ForegroundColor Yellow
+                Write-Host "1. Run 'DISM /Online /Cleanup-Image /RestoreHealth /Source:<path_to_install_media> /LimitAccess' with a known good source." -ForegroundColor Yellow
+                Write-Host "2. If the issue persists, you may need to perform an in-place upgrade or reset of Windows." -ForegroundColor Yellow
+            }
+        }
+
+        # Check Windows Update Health
+        Write-Host "Checking Windows Update health..." -ForegroundColor Yellow
+        try {
+            $updateLogPath = "$env:TEMP\WindowsUpdate.log"
+            $null = Get-WindowsUpdateLog -LogPath $updateLogPath
+            Write-Host "Windows Update log generated successfully at $updateLogPath. Please review it for any issues." -ForegroundColor Green
+        } catch {
+            Write-Host "Failed to generate Windows Update log: $_" -ForegroundColor Red
+            Write-Host "There might be issues with Windows Update. Consider running 'sfc /scannow' and then 'DISM /Online /Cleanup-Image /RestoreHealth' manually." -ForegroundColor Yellow
+        }
+
     } catch {
-        Write-Host "Failed to check system file integrity: $_" -ForegroundColor Red
+        Write-Host "An error occurred during system file integrity check: $_" -ForegroundColor Red
     }
+
+    Write-Host "System file integrity check completed." -ForegroundColor Yellow
+    Write-Host "If issues persist, consider the following steps:" -ForegroundColor Yellow
+    Write-Host "1. Review the CBS log file at C:\Windows\Logs\CBS\CBS.log" -ForegroundColor Yellow
+    Write-Host "2. Run 'sfc /scannow' and 'DISM /Online /Cleanup-Image /RestoreHealth' manually" -ForegroundColor Yellow
+    Write-Host "3. If problems continue, consider performing an in-place upgrade of Windows" -ForegroundColor Yellow
 }
 
 # Function to check for virus and malware
