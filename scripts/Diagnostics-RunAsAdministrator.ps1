@@ -4,7 +4,7 @@
 function Start-Logging {
     $timestamp = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
     $scriptPath = $PSScriptRoot
-    $logPath = Join-Path $scriptPath "Logs/WindowsDiagnostics_$timestamp.log"
+    $logPath = Join-Path $scriptPath "../logs/WindowsDiagnostics_$timestamp.log"
     try {
         Start-Transcript -Path $logPath -ErrorAction Stop
         Write-Host "Logging started at $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')" -ForegroundColor Cyan
