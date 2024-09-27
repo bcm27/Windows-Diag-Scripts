@@ -31,14 +31,45 @@ function Get-SystemInfo {
         $os = Get-CimInstance Win32_OperatingSystem
         $cs = Get-CimInstance Win32_ComputerSystem
         $cpu = Get-CimInstance Win32_Processor
-        $ram = Get-CimInstance Win32_PhysicalMemory | Measure-Object -Property Capacity -Sum
+        $ram = Get-CimInstance Win32_PhysicalMemory
+        $gpu = Get-CimInstance Win32_VideoController
+        
+        # Calculate total RAM
+        $totalRAM = ($ram | Measure-Object -Property Capacity -Sum).Sum
+        
+        # Get RAM speed and type
+        $ramSpeed = $ram[0].Speed
+        $ramType = switch ($ram[0].SMBIOSMemoryType) {
+            20 {"DDR"}
+            21 {"DDR2"}
+            22 {"DDR2 FB-DIMM"}
+            24 {"DDR3"}
+            26 {"DDR4"}
+            default {"Unknown"}
+        }
+        
+        # Determine GPU type and info
+        $gpuInfo = if ($gpu.Count -gt 1) {
+            $dedicatedGPU = $gpu | Where-Object { $_.AdapterCompatibility -notmatch "Intel|AMD" -and $_.VideoProcessor -notmatch "Intel|AMD" } | Select-Object -First 1
+            if ($dedicatedGPU) {
+                "Dedicated GPU: $($dedicatedGPU.Name) ($($dedicatedGPU.AdapterRAM / 1GB) GB)"
+            } else {
+                "Multiple GPUs: " + ($gpu.Name -join ", ")
+            }
+        } elseif ($gpu.AdapterCompatibility -match "Intel|AMD" -or $gpu.VideoProcessor -match "Intel|AMD") {
+            "Integrated Graphics: $($gpu.Name)"
+        } else {
+            "Dedicated GPU: $($gpu.Name) ($($gpu.AdapterRAM / 1GB) GB)"
+        }
+        
         [PSCustomObject]@{
             "OS Name"             = $os.Caption
             "OS Version"          = $os.Version
-            "System Manufacturer" = $cs.Manufacturer
-            "System Model"        = $cs.Model
             "CPU"                 = $cpu.Name
-            "RAM (GB)"            = [math]::Round($ram.Sum / 1GB, 2)
+            "RAM (GB)"            = [math]::Round($totalRAM / 1GB, 2)
+            "RAM Type"            = $ramType
+            "RAM Speed (MHz)"     = $ramSpeed
+            "Graphics"            = $gpuInfo
             "Last Boot Time"      = $os.LastBootUpTime
         } | Format-List
     } catch {
